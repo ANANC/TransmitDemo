@@ -1,99 +1,114 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GlobalUnion 
+public class GlobalUnion : PollingOperationObject
 {
+    private int globalUnionId;
 
-    private int globalUnionIndex;
-    private List<BaseUnit> ManagerList;
-    private Dictionary<string, BaseUnit> ManagerDict;
+    private Dictionary<Type, int> unitTypeDict;
+    private Dictionary<Type, BaseUnit> unitDict;
+    private PollingOperation globalUnionPollingOperation;
 
-    private List<BaseUnit> UpdateList;
+    private IdDistributionChunk idDistributionChunk;
 
-    private List<BaseUnit> AddList;
-    private List<BaseUnit> DeleteList;
-
-
-    public void Init()
+    public void SetGlobalUnionId(int globalUnionId)
     {
-
+        this.globalUnionId = globalUnionId;
     }
 
-    public void UnInit()
+    public override void Init()
     {
+        unitTypeDict = new Dictionary<Type, int>();
+        unitDict = new Dictionary<Type, BaseUnit>();
+        globalUnionPollingOperation = new PollingOperation();
+        globalUnionPollingOperation.SetOperationObjectSortFunc(UnitSort);
 
+        InitGlobalIdDistributionChunk();
     }
 
-    public void Start()
+    private void InitGlobalIdDistributionChunk()
     {
-        if (ManagerList.Count > 0)
+        idDistributionChunk = new IdDistributionChunk();
+        idDistributionChunk.Init();
+        idDistributionChunk.SetFirstId((int)GlobalDefine.UnitType.Unit);
+    }
+
+    public override void UnInit()
+    {
+        idDistributionChunk.UnInit();
+        globalUnionPollingOperation.UnInit();
+        unitDict.Clear();
+        unitTypeDict.Clear();
+    }
+
+    public int UnitSort(int leftUnit, int rightUnit)
+    {
+        return 1;
+    }
+
+
+    public override void Update()
+    {
+        globalUnionPollingOperation.Update();
+    }
+
+    public void AddUnit<T>(int unitTypeId) where T : BaseUnit
+    {
+        Type unitType = typeof(T);
+        if (unitDict.ContainsKey(unitType))
         {
-            for (int index = 0; index < ManagerList.Count; index++)
-            {
-                ManagerList[index].Start();
-            }
+            Debug.LogError($"[GlobalUnion] AddUnit [{unitType.Name}] Fail. Has Record");
+            return;
+        }
+
+        int unitId = idDistributionChunk.Pop();
+        OperationObject operationObject = globalUnionPollingOperation.AddOperationObject(unitId, unitTypeId);
+        if(operationObject!=null)
+        {
+            BaseUnit unit = operationObject as BaseUnit;
+            unitDict.Add(unitType, unit);
+
+            InitUnit(unit);
+        }
+        if(!unitTypeDict.ContainsKey(unitType))
+        {
+            unitTypeDict.Add(unitType, unitTypeId);
         }
     }
 
-    public void Update()
+    private void InitUnit(BaseUnit unit)
     {
-        if (AddList.Count > 0)
-        {
-            for (int index = 0; index < AddList.Count; index++)
-            {
-                UpdateList.Add(AddList[index]);
-            }
-        }
+        unit.SetGlobalUnionId(globalUnionId);
+    }
 
-        if (DeleteList.Count > 0)
+    public T GetUnit<T>() where T : BaseUnit
+    {
+        Type unitType = typeof(T);
+        BaseUnit unit;
+        if (unitDict.TryGetValue(unitType, out unit))
         {
-            for (int index = 0; index < DeleteList.Count; index++)
-            {
-                UpdateList.Remove(DeleteList[index]);
-            }
+            return (T)unit;
         }
-
-        if (UpdateList.Count > 0)
+        else
         {
-            for (int index = 0; index < UpdateList.Count; index++)
-            {
-                UpdateList[index].Update();
-            }
+            Debug.LogError($"[GlobalUnion] GetUnit [{unitType.Name}] Fail. No Record");
+            return null;
         }
     }
 
-    public void AddManager(IManager manager)
+    public void RemoveUnit<T>() where T : BaseUnit
     {
-        manager.Init();
-        ManagerDict.Add(manager.GetType().Name, manager);
-        ManagerList.Add(manager);
-
-        AddList.Add(manager);
-    }
-
-    public void RemoveManager<T>() where T : IManager
-    {
-        IManager manager;
-        string type = typeof(T).Name;
-        if (ManagerDict.TryGetValue(type, out manager))
+        Type unitType = typeof(T);
+        BaseUnit unit;
+        if (unitDict.TryGetValue(unitType, out unit))
         {
-            ManagerDict.Remove(type);
-            ManagerList.Remove(manager);
-
-            DeleteList.Add(manager);
+            int unitTypeId = unitTypeDict[unitType];
+            globalUnionPollingOperation.RemoveOperationObject(unitTypeId, unit);
+            unitDict.Remove(unitType);
         }
     }
 
-    public T Get<T>() where T : IManager
-    {
-        IManager manager;
-        string type = typeof(T).Name;
-        if (ManagerDict.TryGetValue(type, out manager))
-        {
-            return (T)manager;
-        }
-        return default(T);
-    }
 
 }

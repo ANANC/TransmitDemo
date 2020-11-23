@@ -7,6 +7,14 @@ public class OperationInstanceDefine
 {
     public static Dictionary<int, Type> OperationObjectType2ClassType = new Dictionary<int, Type>()
     {
+        //---- GlobalUnion ----
+        { (int)GlobalDefine.GlobalUnionType.Global, typeof(GlobalUnion) },
+
+        
+        //---- Unit ----
+        { (int)GlobalDefine.UnitType.Unit, typeof(BaseUnit) },
+
+
         //---- EntityType ----
         { (int)ECSDefine.EntityType.Normal, typeof(BaseEntity) },
 

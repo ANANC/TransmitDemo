@@ -3,13 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ECSModule
+public class ECSUnit: BaseUnit
 {
     private Operation entityOperation;
     private Operation componentOperation;
     private Operation systemOperation;
 
-    private void Init()
+    public override void Init()
     {
         entityOperation = new Operation();
         entityOperation.Init();
@@ -25,13 +25,12 @@ public class ECSModule
 
     }
 
-    private void UnInit()
+    public override void UnInit()
     {
         entityOperation.UnInit();
         componentOperation.UnInit();
         systemOperation.UnInit();
     }
-
 
     public BaseEntity CreateEntity(ECSDefine.EntityType entityType, int entityId)
     {
@@ -44,6 +43,8 @@ public class ECSModule
         }
 
         BaseEntity entity = operationObject as BaseEntity;
+
+        entity.SetGlobalUnionId(GlobalUnionId);
 
         entity.SetEntityId(entityId);
         entity.SetEntityType(entityType);
@@ -79,6 +80,8 @@ public class ECSModule
         }
 
         BaseComponent component = operationObject as BaseComponent;
+
+        component.SetGlobalUnionId(GlobalUnionId);
 
         component.SetEntityId(entityId);
         component.SetComponentId(componentId);
@@ -117,6 +120,8 @@ public class ECSModule
         }
 
         BaseSystem system = operationObject as BaseSystem;
+
+        system.SetGlobalUnionId(GlobalUnionId);
 
         system.SetSystemId(systemId);
         system.FillInComponentInfo();

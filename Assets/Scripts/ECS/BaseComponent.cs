@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class BaseComponent : OperationObject
+public abstract class BaseComponent : BaseObject
 {
     public class ComponentExpandData { };
 

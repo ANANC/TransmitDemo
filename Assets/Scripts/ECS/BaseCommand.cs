@@ -2,21 +2,21 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BaseCommand
+public class BaseCommand: BaseObject
 {
     private int entityId;
     private List<int> componentIdList;
     private ECSDefine.SystemType systemType;
     private BaseSystem.SystemExpandData expandData;
 
-    public void Init()
+    public override void Init()
     {
         entityId = 0;
         componentIdList = null;
         expandData = null;
     }
 
-    public void UnInit()
+    public override void UnInit()
     {
         entityId = 0;
         expandData = null;

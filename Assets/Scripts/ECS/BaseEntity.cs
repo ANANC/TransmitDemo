@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BaseEntity: OperationObject
+public class BaseEntity: BaseObject
 {
     private int entityId;
     private ECSDefine.EntityType entityType;

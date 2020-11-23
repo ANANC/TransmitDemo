@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class BaseSystem : OperationObject
+public abstract class BaseSystem : BaseObject
 {
     public class ComponentInfo
     {
