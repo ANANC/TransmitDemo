@@ -2,27 +2,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GAIA_GlobalUnion 
+public class GlobalUnion 
 {
-    private static GAIA_GlobalUnion globalInstance;
-    public static GAIA_GlobalUnion Union
-    {
-        get { return globalInstance; }
-    }
 
-    private List<GAIA_IBaseUnit> ManagerList;
-    private Dictionary<string, IManager> ManagerDict;
+    private int globalUnionIndex;
+    private List<BaseUnit> ManagerList;
+    private Dictionary<string, BaseUnit> ManagerDict;
 
-    private List<IManager> UpdateList;
+    private List<BaseUnit> UpdateList;
 
-    private List<IManager> AddList;
-    private List<IManager> DeleteList;
+    private List<BaseUnit> AddList;
+    private List<BaseUnit> DeleteList;
 
-
-    public static void ResetGlobalUnionEnvionment(GAIA_GlobalUnion globalUnion)
-    {
-        globalInstance = globalUnion;
-    }
 
     public void Init()
     {

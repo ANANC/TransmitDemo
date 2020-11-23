@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class GAIA_BaseUnit : OperationObject, GAIA_IBaseUnit
+public abstract class BaseUnit : OperationObject, IBaseUnit
 {
     public override void Init()
     {
