@@ -5,14 +5,12 @@ using UnityEngine;
 public class BaseCommand: BaseObject
 {
     private int entityId;
-    private List<int> componentIdList;
     private ECSDefine.SystemType systemType;
     private BaseSystem.SystemExpandData expandData;
 
     public override void Init()
     {
         entityId = 0;
-        componentIdList = null;
         expandData = null;
     }
 
@@ -20,26 +18,15 @@ public class BaseCommand: BaseObject
     {
         entityId = 0;
         expandData = null;
-        if(componentIdList != null)
-        {
-            componentIdList.Clear();
-        }
     }
 
-    public void Send(int entityId, ECSDefine.SystemType systemType, BaseSystem.SystemExpandData expandData)
+    public void FillIn(int entityId, ECSDefine.SystemType systemType, BaseSystem.SystemExpandData expandData)
     {
         this.entityId = entityId;
         this.systemType = systemType;
         this.expandData = expandData;
     }
 
-    public void Receive(int entityId, List<int> componentIdList, ECSDefine.SystemType systemType,BaseSystem.SystemExpandData expandData)
-    {
-        this.entityId = entityId;
-        this.componentIdList = componentIdList;
-        this.systemType = systemType;
-        this.expandData = expandData;
-    }
 
     public int GetEntityId()
     {
@@ -51,10 +38,6 @@ public class BaseCommand: BaseObject
         return systemType;
     }
 
-    public List<int> GetComponentIdList()
-    {
-        return componentIdList;
-    }
 
     public BaseSystem.SystemExpandData GetExpandData()
     {

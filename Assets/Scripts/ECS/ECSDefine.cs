@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
+﻿
 public class ECSDefine 
 {
     public enum EntityType
@@ -14,13 +10,12 @@ public class ECSDefine
     public enum ComponentType
     {
         Base = 2000,
-
-
     };
 
     public enum SystemType
     {
-        Base = 3000,
+        ComponentInfo = 3000,
+        Base = 3001,
     };
 
 

@@ -9,7 +9,7 @@ public class RunSystem
     {
         get
         {
-            if(runSystem == null)
+            if (runSystem == null)
             {
                 runSystem = new RunSystem();
                 runSystem.Init();
@@ -26,9 +26,16 @@ public class RunSystem
     public void Init()
     {
         globalUnionDict = new Dictionary<int, GlobalUnion>();
-        globalUnionPollingOperation = new PollingOperation();
 
+        InitPollingOperation();
         InitGlobalIdDistributionChunk();
+    }
+
+    private void InitPollingOperation()
+    {
+        globalUnionPollingOperation = new PollingOperation();
+        globalUnionPollingOperation.Init();
+        globalUnionPollingOperation.SetName("RunSystem");
     }
 
     private void InitGlobalIdDistributionChunk()
@@ -48,7 +55,7 @@ public class RunSystem
     public GlobalUnion CreateGlobalUnion()
     {
         int globalId = idDistributionChunk.Pop();
-        OperationObject operationObject = globalUnionPollingOperation.AddOperationObject(globalId, (int)ECSDefine.GlobalUnionType.Global);
+        OperationObject operationObject = globalUnionPollingOperation.AddOperationObject(globalId, (int)GlobalDefine.GlobalUnionType.Global);
         if (operationObject != null)
         {
             GlobalUnion globalUnion = operationObject as GlobalUnion;

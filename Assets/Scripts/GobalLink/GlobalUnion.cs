@@ -22,10 +22,17 @@ public class GlobalUnion : PollingOperationObject
     {
         unitTypeDict = new Dictionary<Type, int>();
         unitDict = new Dictionary<Type, BaseUnit>();
-        globalUnionPollingOperation = new PollingOperation();
-        globalUnionPollingOperation.SetOperationObjectSortFunc(UnitSort);
 
+        InitPollingOperation();
         InitGlobalIdDistributionChunk();
+    }
+
+    private void InitPollingOperation()
+    {
+        globalUnionPollingOperation = new PollingOperation();
+        globalUnionPollingOperation.Init();
+        globalUnionPollingOperation.SetName("GlobalUnion");
+        globalUnionPollingOperation.SetOperationObjectSortFunc(UnitSort);
     }
 
     private void InitGlobalIdDistributionChunk()

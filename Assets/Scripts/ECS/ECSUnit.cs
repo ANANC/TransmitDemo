@@ -7,7 +7,6 @@ public class ECSUnit: BaseUnit
 {
     private Operation entityOperation;
     private Operation componentOperation;
-    private Operation systemOperation;
 
     public override void Init()
     {
@@ -18,18 +17,12 @@ public class ECSUnit: BaseUnit
         componentOperation = new Operation();
         componentOperation.Init();
         componentOperation.SetName("Component");
-
-        systemOperation = new Operation();
-        systemOperation.Init();
-        systemOperation.SetName("System");
-
     }
 
     public override void UnInit()
     {
         entityOperation.UnInit();
         componentOperation.UnInit();
-        systemOperation.UnInit();
     }
 
     public BaseEntity CreateEntity(ECSDefine.EntityType entityType, int entityId)
@@ -108,44 +101,6 @@ public class ECSUnit: BaseUnit
     {
         ECSDefine.ComponentType componentType = component.GetComponentType();
         componentOperation.DeleteOperationObject((int)componentType, component);
-    }
-
-    public BaseSystem CreateSystem(ECSDefine.SystemType systemType, int systemId)
-    {
-        OperationObject operationObject = systemOperation.CreateOperationObject((int)systemType, systemId);
-        if (operationObject == null)
-        {
-            Debug.LogError($"[ECSModule] CreateSystem Fail. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
-            return null;
-        }
-
-        BaseSystem system = operationObject as BaseSystem;
-
-        system.SetGlobalUnionId(GlobalUnionId);
-
-        system.SetSystemId(systemId);
-        system.FillInComponentInfo();
-
-        return system;
-    }
-
-    public BaseSystem GetSystem(int systemId)
-    {
-        OperationObject operationObject = systemOperation.GetOperationObject(systemId);
-        if (operationObject == null)
-        {
-            Debug.LogError($"[ECSModule] GetSystem Fail.No record. systemId:{systemId}");
-            return null;
-        }
-        BaseSystem system = operationObject as BaseSystem;
-
-        return system;
-    }
-
-    public void DeleteSystem(BaseSystem system)
-    {
-        ECSDefine.SystemType systemType = system.GetSystemType();
-        systemOperation.DeleteOperationObject((int)systemType, system);
     }
 
 }

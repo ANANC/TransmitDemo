@@ -24,6 +24,7 @@ public class OperationInstanceDefine
 
         
         //---- SystemType ----
+        { (int)ECSDefine.SystemType.ComponentInfo, typeof(BaseSystem.ComponentInfo) },
         { (int)ECSDefine.SystemType.Base, typeof(BaseSystem) },
     };
 }
