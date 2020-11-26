@@ -16,6 +16,12 @@ public class ECSInstanceDefine
         { ECSDefine.SystemType.Base,ECSDefine.SystemFunctionType.Logic },
     };
 
+    public static Dictionary<ECSDefine.ComponentType, ECSDefine.SystemType> RequireComponentType2ExecuteSystem = new Dictionary<ECSDefine.ComponentType, ECSDefine.SystemType>()
+    {
+        //示例
+        { ECSDefine.ComponentType.Base, ECSDefine.SystemType.Base},
+    };
+
     public static List<BaseUnit> GameUnitPriorityList = new List<BaseUnit>()
     {
 
