@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class CommandUnit : BaseUnit
 {
-    private Dictionary<ECSDefine.SystemFunctionType,List<BaseCommand>> executeCommandList;
+    private Dictionary<ECSDefine.SystemType,List<BaseCommand>> systemTypeCommandListDict;
 
     private List<BaseCommand> sendCommandList;
 
@@ -18,7 +18,7 @@ public class CommandUnit : BaseUnit
 
     public override void Init()
     {
-        executeCommandList = new Dictionary<ECSDefine.SystemFunctionType, List<BaseCommand>>();
+        systemTypeCommandListDict = new Dictionary<ECSDefine.SystemType, List<BaseCommand>>();
         sendCommandList = new List<BaseCommand>();
         cacheCommandList = new List<BaseCommand>();
 
@@ -48,7 +48,7 @@ public class CommandUnit : BaseUnit
 
         cacheCommandList.Clear();
         sendCommandList.Clear();
-        executeCommandList.Clear();
+        systemTypeCommandListDict.Clear();
 
         ExecuteSystemUnit = null;
     }
@@ -86,22 +86,25 @@ public class CommandUnit : BaseUnit
 
             ECSDefine.SystemType systemType = command.GetSystemType();
 
-            ECSDefine.SystemFunctionType systemFunction;
-            if (!ECSInstanceDefine.SystemType2Function.TryGetValue(systemType, out systemFunction))
-            {
-                Debug.LogError($"[ECSModule] CacheCommandToExecuteCommand Fail. No SystemFunctionType Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
-                continue;
-            }
-
             List<BaseCommand> commandList;
-            if(!executeCommandList.TryGetValue(systemFunction,out commandList))
+            if(!systemTypeCommandListDict.TryGetValue(systemType, out commandList))
             {
                 commandList = new List<BaseCommand>();
-                executeCommandList.Add(systemFunction, commandList);
+                systemTypeCommandListDict.Add(systemType, commandList);
             }
             commandList.Add(command);
         }
         cacheCommandList.Clear();
+    }
+
+    public List<BaseCommand> PopSystemTypeCommandList(ECSDefine.SystemType systemType)
+    {
+        List<BaseCommand> commandList;
+        if (systemTypeCommandListDict.TryGetValue(systemType, out commandList))
+        {
+            return commandList;
+        }
+        return null;
     }
 
     public List<BaseCommand> PopSendCommands()

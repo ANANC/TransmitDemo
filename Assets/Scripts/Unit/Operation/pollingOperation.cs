@@ -42,6 +42,17 @@ public class PollingOperation: Operation
 
     public void Update()
     {
+        UpdateUpdateOperationObjectList();
+
+        for(int index = 0;index< operationObjectUpdatePriorityList.Count;index++)
+        {
+            int operationObjectType = operationObjectUpdatePriorityList[index];
+            UpdatePollingOperationObjectByOperationObjectType(operationObjectType);
+        }
+    }
+
+    public void UpdateUpdateOperationObjectList()
+    {
         bool change = false;
 
         if(addOperationObjectListDict.Count >0)
@@ -92,20 +103,19 @@ public class PollingOperation: Operation
                 operationObjectUpdatePriorityList.Sort(pollingoperationObjectTypeSortFunc);
             }
         }
+    }
 
-        for (int index = 0; index < operationObjectUpdatePriorityList.Count; index++)
+    public void UpdatePollingOperationObjectByOperationObjectType(int operationObjectType)
+    {
+        List<PollingOperationObject> operationObjectList;
+        if (updateOperationObjectListDict.TryGetValue(operationObjectType, out operationObjectList))
         {
-            int operationObjectType = operationObjectUpdatePriorityList[index];
-            List<PollingOperationObject> operationObjectList;
-            if (updateOperationObjectListDict.TryGetValue(operationObjectType, out operationObjectList))
+            for (int operationObjectIndex = 0; operationObjectIndex < operationObjectList.Count; operationObjectIndex++)
             {
-                for(int operationObjectIndex = 0; operationObjectIndex< operationObjectList.Count; operationObjectIndex++)
-                {
-                    operationObjectList[operationObjectIndex]?.Update();
-                }
+                PollingOperationObject pollingOperationObject = operationObjectList[operationObjectIndex];
+                pollingOperationObject?.Update();
             }
         }
-
     }
 
     public OperationObject AddOperationObject(int operationObjectType, int operationObjectId)
@@ -113,13 +123,17 @@ public class PollingOperation: Operation
         OperationObject operationObject = CreateOperationObject(operationObjectType, operationObjectId);
         if (operationObject != null && operationObject is PollingOperationObject)
         {
-            List<PollingOperationObject> operationObjectList;
-            if(!addOperationObjectListDict.TryGetValue(operationObjectType,out operationObjectList))
+            PollingOperationObject pollingOperationObject = operationObject as PollingOperationObject;
+            if (pollingOperationObject.IsUpdate)
             {
-                operationObjectList = new List<PollingOperationObject>();
-                addOperationObjectListDict.Add(operationObjectType, operationObjectList);
+                List<PollingOperationObject> operationObjectList;
+                if (!addOperationObjectListDict.TryGetValue(operationObjectType, out operationObjectList))
+                {
+                    operationObjectList = new List<PollingOperationObject>();
+                    addOperationObjectListDict.Add(operationObjectType, operationObjectList);
+                }
+                operationObjectList.Add(pollingOperationObject);
             }
-            operationObjectList.Add((PollingOperationObject)operationObject);
             return operationObject;
         }
         else
@@ -140,6 +154,7 @@ public class PollingOperation: Operation
         }
         operationObjectList.Add(operationObject);
     }
+
 
     private void AddUpdateOperationObject(int operationObjectType, PollingOperationObject operationObject)
     {
@@ -169,9 +184,7 @@ public class PollingOperation: Operation
         List<PollingOperationObject> operationObjectList;
         if (updateOperationObjectListDict.TryGetValue(operationObjectType, out operationObjectList))
         {
-            operationObjectList.Remove(operationObject);
-
-            if (operationObjectList.Count == 0)
+            if (operationObjectList.Remove(operationObject) && operationObjectList.Count == 0)
             {
                 bool active;
                 if (operationObjectUpdatePriorityDict.TryGetValue(operationObjectType,out active))

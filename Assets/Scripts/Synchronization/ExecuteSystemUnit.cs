@@ -61,12 +61,13 @@ public class ExecuteSystemUnit : BaseUnit
         ECSUnit = null;
     }
 
-    public void UpdateFunctionSystemsByFunctionTyep(ECSDefine.SystemFunctionType systemFunctionType)
+    public void UpdateFunctionSystemsByFunctionTyep(ECSDefine.SystemFunctionType systemFunctionType,ECSDefine.SystemType systemType)
     {
         PollingOperation functionSystems;
         if(!functionSystemOperationDict.TryGetValue(systemFunctionType,out functionSystems))
         {
-            functionSystems.Update();
+            functionSystems.UpdateUpdateOperationObjectList();
+            functionSystems.UpdatePollingOperationObjectByOperationObjectType((int)systemType);
         }
     }
 
@@ -154,7 +155,6 @@ public class ExecuteSystemUnit : BaseUnit
 
             functionSystemOperation.Init();
             functionSystemOperation.SetName(Enum.GetName(typeof(ECSDefine.SystemFunctionType), systemFunction) + "System");
-            functionSystemOperation.SetOperationObjectSortFunc(PollingFunctionSystemOperationSort);
 
             functionSystemOperationDict.Add(systemFunction, functionSystemOperation);
         }
@@ -185,7 +185,6 @@ public class ExecuteSystemUnit : BaseUnit
 
             functionSystemOperation.Init();
             functionSystemOperation.SetName(Enum.GetName(typeof(ECSDefine.SystemFunctionType), systemFunction) + "System");
-            functionSystemOperation.SetOperationObjectSortFunc(PollingFunctionSystemOperationSort);
 
             functionSystemOperationDict.Add(systemFunction, functionSystemOperation);
         }
@@ -315,18 +314,6 @@ public class ExecuteSystemUnit : BaseUnit
         return fillInSuccess;
     }
 
-    private BaseSystem GetSystem(int systemId)
-    {
-        OperationObject operationObject = systemOperation.GetOperationObject(systemId);
-        if (operationObject == null)
-        {
-            Debug.LogError($"[ECSModule] GetSystem Fail.No record. systemId:{systemId}");
-            return null;
-        }
-        BaseSystem system = operationObject as BaseSystem;
-
-        return system;
-    }
 
     public BaseSystem.ComponentInfo PopSystemComponentInfo()
     {

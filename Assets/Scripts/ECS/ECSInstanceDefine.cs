@@ -16,4 +16,9 @@ public class ECSInstanceDefine
         { ECSDefine.SystemType.Base,ECSDefine.SystemFunctionType.Logic },
     };
 
+    public static List<BaseUnit> GameUnitPriorityList = new List<BaseUnit>()
+    {
+
+    };
+
 }
