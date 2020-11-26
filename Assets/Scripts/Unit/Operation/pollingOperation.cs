@@ -11,7 +11,7 @@ public class PollingOperation: Operation
 
     private List<int> operationObjectUpdatePriorityList;
     private Dictionary<int, bool> operationObjectUpdatePriorityDict;
-    private Comparison<int> operationObjectSortFunc;
+    private Comparison<int> pollingoperationObjectTypeSortFunc;
 
     public new void Init()
     {
@@ -37,7 +37,7 @@ public class PollingOperation: Operation
 
     public void SetOperationObjectSortFunc(Comparison<int> sortFunc)
     {
-        operationObjectSortFunc = sortFunc;
+        pollingoperationObjectTypeSortFunc = sortFunc;
     }
 
     public void Update()
@@ -87,9 +87,9 @@ public class PollingOperation: Operation
 
         if(change)
         {
-            if(operationObjectSortFunc!=null)
+            if(pollingoperationObjectTypeSortFunc!=null)
             {
-                operationObjectUpdatePriorityList.Sort(operationObjectSortFunc);
+                operationObjectUpdatePriorityList.Sort(pollingoperationObjectTypeSortFunc);
             }
         }
 

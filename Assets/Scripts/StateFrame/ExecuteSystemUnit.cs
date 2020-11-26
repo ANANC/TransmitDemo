@@ -7,10 +7,12 @@ public class ExecuteSystemUnit : BaseUnit
 {
     private IdDistributionChunk systemIdDistributionChunk;
     private Operation systemOperation;
+    private Dictionary<ECSDefine.SystemFunctionType, PollingOperation> functionSystemOperationDict;
+
+    private Dictionary<int, Dictionary<ECSDefine.SystemType, BaseSystem>> entityRegFunctionSystemDict;
 
     private IdDistributionChunk systemComponentInfoIdDistributionChunk;
     private Operation systemComponentInfoOperation;
-    private PollingOperation pollingSystemComponentInfoOperation;
 
     private ECSUnit ECSUnit;
 
@@ -20,10 +22,8 @@ public class ExecuteSystemUnit : BaseUnit
         systemOperation.Init();
         systemOperation.SetName("System");
 
-        pollingSystemComponentInfoOperation = new PollingOperation();
-        pollingSystemComponentInfoOperation.Init();
-        pollingSystemComponentInfoOperation.SetName("PollingSystem");
-        pollingSystemComponentInfoOperation.SetOperationObjectSortFunc(PollingSystemComponentInfoOperationSort);
+        functionSystemOperationDict = new Dictionary<ECSDefine.SystemFunctionType, PollingOperation>();
+        entityRegFunctionSystemDict = new Dictionary<int, Dictionary<ECSDefine.SystemType, BaseSystem>>();
 
         systemComponentInfoOperation = new Operation();
         systemComponentInfoOperation.Init();
@@ -50,25 +50,147 @@ public class ExecuteSystemUnit : BaseUnit
 
     public override void UnInit()
     {
-        pollingSystemComponentInfoOperation.UnInit();
         systemOperation.UnInit();
         systemComponentInfoOperation.UnInit();
 
         systemIdDistributionChunk.UnInit();
         systemComponentInfoIdDistributionChunk.UnInit();
 
+        functionSystemOperationDict.Clear();
+
         ECSUnit = null;
     }
 
+    public void UpdateFunctionSystemsByFunctionTyep(ECSDefine.SystemFunctionType systemFunctionType)
+    {
+        PollingOperation functionSystems;
+        if(!functionSystemOperationDict.TryGetValue(systemFunctionType,out functionSystems))
+        {
+            functionSystems.Update();
+        }
+    }
 
-    private int PollingSystemComponentInfoOperationSort(int leftSystem,int rightSystem)
+    private int PollingFunctionSystemOperationSort(int leftSystem,int rightSystem)
     {
         return -1;
     }
 
     public void RegSystem(int entityId, ECSDefine.SystemType systemType)
     {
+        BaseEntity entity = ECSUnit.GetEntity(entityId);
+        if (entity == null)
+        {
+            Debug.LogError($"[ECSModule] RegSystem Fail. Entity Is nil. entityId:{entityId}");
+            return;
+        }
 
+        int systemId = systemIdDistributionChunk.Pop();
+        BaseSystem system = CreateFunctionSystem(systemType, systemId);
+        if (system == null)
+        {
+            return;
+        }
+
+        bool success = true;
+
+        do
+        {
+            List<BaseSystem.ComponentInfo> componentInfos;
+            bool fillInSuccess = FillInComponentInfo(system, entity, out componentInfos);
+
+            if (!fillInSuccess)
+            {
+                success = false;
+                break;
+            }
+
+            system.FillInExecute(entityId, componentInfos);
+        }
+        while (false);
+
+        if(!success)
+        {
+            DeleteFunctionSystem(systemType,system);
+        }
+    }
+
+    private void UnRegSystem(int entityId, ECSDefine.SystemType systemType)
+    {
+        BaseEntity entity = ECSUnit.GetEntity(entityId);
+        if (entity == null)
+        {
+            Debug.LogError($"[ECSModule] UnRegSystem Fail. Entity Is nil. entityId:{entityId}");
+            return;
+        }
+
+        Dictionary<ECSDefine.SystemType, BaseSystem> regFunctionSystemDict;
+        if (!entityRegFunctionSystemDict.TryGetValue(entityId, out regFunctionSystemDict))
+        {
+            return;
+        }
+
+        BaseSystem functionSystem;
+        if (!regFunctionSystemDict.TryGetValue(systemType,out functionSystem))
+        {
+            return;
+        }
+
+        DeleteFunctionSystem(systemType, functionSystem);
+    }
+
+    private BaseSystem CreateFunctionSystem(ECSDefine.SystemType systemType, int systemId)
+    {
+        ECSDefine.SystemFunctionType systemFunction;
+        if (!ECSInstanceDefine.SystemType2Function.TryGetValue(systemType, out systemFunction))
+        {
+            Debug.LogError($"[ECSModule] CreateFunctionSystem Fail. No SystemFunctionType Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+            return null;
+        }
+
+        PollingOperation functionSystemOperation;
+        if (!functionSystemOperationDict.TryGetValue(systemFunction, out functionSystemOperation))
+        {
+            functionSystemOperation = new PollingOperation();
+
+            functionSystemOperation.Init();
+            functionSystemOperation.SetName(Enum.GetName(typeof(ECSDefine.SystemFunctionType), systemFunction) + "System");
+            functionSystemOperation.SetOperationObjectSortFunc(PollingFunctionSystemOperationSort);
+
+            functionSystemOperationDict.Add(systemFunction, functionSystemOperation);
+        }
+
+        OperationObject operationObject = functionSystemOperation.AddOperationObject((int)systemType, systemId);
+        if (operationObject == null)
+        {
+            Debug.LogError($"[ECSModule] CreateSystem Fail. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+            return null;
+        }
+
+        return InitSystem(operationObject, systemType, systemId);
+    }
+
+    private void DeleteFunctionSystem(ECSDefine.SystemType systemType,BaseSystem system)
+    {
+        ECSDefine.SystemFunctionType systemFunction;
+        if (!ECSInstanceDefine.SystemType2Function.TryGetValue(systemType, out systemFunction))
+        {
+            Debug.LogError($"[ECSModule] CreateFunctionSystem Fail. No SystemFunctionType Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+            return;
+        }
+
+        PollingOperation functionSystemOperation;
+        if (!functionSystemOperationDict.TryGetValue(systemFunction, out functionSystemOperation))
+        {
+            functionSystemOperation = new PollingOperation();
+
+            functionSystemOperation.Init();
+            functionSystemOperation.SetName(Enum.GetName(typeof(ECSDefine.SystemFunctionType), systemFunction) + "System");
+            functionSystemOperation.SetOperationObjectSortFunc(PollingFunctionSystemOperationSort);
+
+            functionSystemOperationDict.Add(systemFunction, functionSystemOperation);
+        }
+
+        functionSystemOperation.RemoveOperationObject((int)systemType, system);
     }
 
     public void ExecuteSystem(int entityId, ECSDefine.SystemType systemType, BaseSystem.SystemExpandData expandData)
@@ -81,7 +203,7 @@ public class ExecuteSystemUnit : BaseUnit
         }
 
         int systemId = systemIdDistributionChunk.Pop();
-        BaseSystem system = CreateSystem(systemType, systemId);
+        BaseSystem system = CreateImmediatelyExecuteSystem(systemType, systemId);
         if (system == null)
         {
             return;
@@ -89,48 +211,30 @@ public class ExecuteSystemUnit : BaseUnit
 
         do
         {
-            bool fillInSuccess = true;
-            List<BaseSystem.ComponentInfo> componentInfos = system.GetComponentInfoList();
-            for (int index = 0; index < componentInfos.Count; index++)
+            if (system.GetSystemFunctionType() != ECSDefine.SystemFunctionType.Logic)
             {
-                BaseSystem.ComponentInfo componentInfo = componentInfos[index];
-                BaseComponent component = null;
-
-                if (componentInfo.ComponentId != -1)
-                {
-                    component = entity.GetComponentByComponentId(componentInfo.ComponentId);
-                }
-                else if (componentInfo.ComponentType != ECSDefine.ComponentType.Base)
-                {
-                    component = entity.GetComponentByComponentType(componentInfo.ComponentType);
-                }
-
-                if (component == null)
-                {
-                    fillInSuccess = false;
-                    Debug.LogError($"[ECSModule] ExecuteSystem Fail. Component Is nil. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)} componentId:{componentInfo.ComponentId } componentType:{componentInfo.ComponentType}");
-                    break;
-                }
-                else
-                {
-                    componentInfo.Component = component;
-                    componentInfo.ComponentId = component.GetComponentId();
-                    componentInfo.ComponentType = component.GetComponentType();
-                }
+                Debug.LogError($"[ECSModule] ExecuteSystem Fail. Only Can ImmediatelyExecute Logic Type. entityId:{entityId} systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+                break;
             }
 
-            if (fillInSuccess)
+            List<BaseSystem.ComponentInfo> componentInfos;
+            bool fillInSuccess = FillInComponentInfo(system, entity,out componentInfos);
+
+            if (!fillInSuccess)
             {
-                system.Execute(entityId, componentInfos, expandData);
+                break;
             }
+
+            system.SetGlobalUnionId(GlobalUnionId);
+            system.Execute(entityId, componentInfos, expandData);
         }
         while (false);
 
-        DeleteSystem(system);//执行完毕回收
+        DeleteImmediatelyExecuteSystem(system);//执行完毕回收
     }
 
 
-    private BaseSystem CreateSystem(ECSDefine.SystemType systemType, int systemId)
+    private BaseSystem CreateImmediatelyExecuteSystem(ECSDefine.SystemType systemType, int systemId)
     {
         OperationObject operationObject = systemOperation.CreateOperationObject((int)systemType, systemId);
         if (operationObject == null)
@@ -139,14 +243,76 @@ public class ExecuteSystemUnit : BaseUnit
             return null;
         }
 
+        return InitSystem(operationObject, systemType, systemId);
+    }
+
+    private void DeleteImmediatelyExecuteSystem(BaseSystem system)
+    {
+        ECSDefine.SystemType systemType = system.GetSystemType();
+        system.SetGlobalUnionId(0);
+        systemOperation.DeleteOperationObject((int)systemType, system);
+    }
+
+    private BaseSystem InitSystem(OperationObject operationObject, ECSDefine.SystemType systemType, int systemId)
+    {
         BaseSystem system = operationObject as BaseSystem;
 
-        system.SetGlobalUnionId(GlobalUnionId);
-
         system.SetSystemId(systemId);
+        system.SetSystemType(systemType);
+
+        ECSDefine.SystemPriority systemPriority;
+        if (!ECSInstanceDefine.SystemType2Priority.TryGetValue(systemType, out systemPriority))
+        {
+            Debug.LogError($"[ECSModule] GetSystemType2Priority Fail. No Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+            systemPriority = ECSDefine.SystemPriority.Normal;
+        }
+        system.SetSystemPriority(systemPriority);
+
+        ECSDefine.SystemFunctionType systemFunctionType;
+        if (!ECSInstanceDefine.SystemType2Function.TryGetValue(systemType, out systemFunctionType))
+        {
+            Debug.LogError($"[ECSModule] SystemType2Function Fail. No Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+            systemFunctionType = ECSDefine.SystemFunctionType.Logic;
+        }
+        system.SetSystemFunctionType(systemFunctionType);
+
         system.FillInComponentInfo();
 
         return system;
+    }
+
+    private bool FillInComponentInfo(BaseSystem system,BaseEntity entity, out List<BaseSystem.ComponentInfo> componentInfos)
+    {
+        bool fillInSuccess = true;
+        componentInfos = system.PopComponentInfoList();
+        for (int index = 0; index < componentInfos.Count; index++)
+        {
+            BaseSystem.ComponentInfo componentInfo = componentInfos[index];
+            BaseComponent component = null;
+
+            if (componentInfo.ComponentId != -1)
+            {
+                component = entity.GetComponentByComponentId(componentInfo.ComponentId);
+            }
+            else if (componentInfo.ComponentType != ECSDefine.ComponentType.Base)
+            {
+                component = entity.GetComponentByComponentType(componentInfo.ComponentType);
+            }
+
+            if (component == null)
+            {
+                fillInSuccess = false;
+                Debug.LogError($"[ECSModule] ExecuteSystem Fail. Component Is nil. {entity.GetEntityId()}  componentId:{componentInfo.ComponentId } componentType:{componentInfo.ComponentType}");
+                break;
+            }
+            else
+            {
+                componentInfo.Component = component;
+                componentInfo.ComponentId = component.GetComponentId();
+                componentInfo.ComponentType = component.GetComponentType();
+            }
+        }
+        return fillInSuccess;
     }
 
     private BaseSystem GetSystem(int systemId)
@@ -161,13 +327,6 @@ public class ExecuteSystemUnit : BaseUnit
 
         return system;
     }
-
-    private void DeleteSystem(BaseSystem system)
-    {
-        ECSDefine.SystemType systemType = system.GetSystemType();
-        systemOperation.DeleteOperationObject((int)systemType, system);
-    }
-
 
     public BaseSystem.ComponentInfo PopSystemComponentInfo()
     {

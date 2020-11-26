@@ -4,13 +4,14 @@ using UnityEngine;
 
 public abstract class BaseSystem : BaseObject
 {
-    public class ComponentInfo: BaseObject
+    public class ComponentInfo : BaseObject
     {
         public int ComponentId;
         public ECSDefine.ComponentType ComponentType;
         public BaseComponent Component;
 
-        public override void Init() {
+        public override void Init()
+        {
             ComponentId = -1;
             ComponentType = ECSDefine.ComponentType.Base;
             Component = null;
@@ -22,6 +23,7 @@ public abstract class BaseSystem : BaseObject
 
     private int systemId;
     private ECSDefine.SystemPriority systemPriority;
+    private ECSDefine.SystemFunctionType systemFunctionType;
     private ECSDefine.SystemType systemType;
 
     private int entityId;
@@ -39,7 +41,7 @@ public abstract class BaseSystem : BaseObject
 
     public override void UnInit()
     {
-        for(int index = 0;index< componentInfoList.Count;index++)
+        for (int index = 0; index < componentInfoList.Count; index++)
         {
             ExecuteSystemUnit.PushSystemComponentInfo(componentInfoList[index]);
         }
@@ -60,7 +62,7 @@ public abstract class BaseSystem : BaseObject
         return systemId;
     }
 
-    public void AddNeedComponentInfo(ECSDefine.ComponentType componentType,int componentId = -1)
+    public void AddNeedComponentInfo(ECSDefine.ComponentType componentType, int componentId = -1)
     {
         ComponentInfo componentInfo = ExecuteSystemUnit.PopSystemComponentInfo();
         if (componentInfo != null)
@@ -72,9 +74,11 @@ public abstract class BaseSystem : BaseObject
         }
     }
 
-    public List<ComponentInfo> GetComponentInfoList()
+    public List<ComponentInfo> PopComponentInfoList()
     {
-        return componentInfoList;
+        List<ComponentInfo> popList = this.componentInfoList;
+        componentInfoList = null;
+        return popList;
     }
 
     public void SetSystemType(ECSDefine.SystemType systemType)
@@ -86,8 +90,18 @@ public abstract class BaseSystem : BaseObject
     {
         return systemType;
     }
+    public void SetSystemFunctionType(ECSDefine.SystemFunctionType systemFunctionType)
+    {
+        this.systemFunctionType = systemFunctionType;
+    }
 
-    public void SetSystemPriority(ECSDefine.SystemPriority  priority)
+    public ECSDefine.SystemFunctionType GetSystemFunctionType()
+    {
+        return systemFunctionType;
+    }
+
+
+    public void SetSystemPriority(ECSDefine.SystemPriority priority)
     {
         systemPriority = priority;
     }
@@ -97,7 +111,7 @@ public abstract class BaseSystem : BaseObject
         return systemPriority;
     }
 
-    public void Execute(int entityId,List<ComponentInfo> componentInfoList,SystemExpandData systemExpandData)
+    public void Execute(int entityId, List<ComponentInfo> componentInfoList, SystemExpandData systemExpandData)
     {
         this.entityId = entityId;
         this.componentInfoList = componentInfoList;
@@ -106,5 +120,19 @@ public abstract class BaseSystem : BaseObject
         SystemExecute();
     }
 
+    public void FillInExecute(int entityId, List<ComponentInfo> componentInfoList)
+    {
+        this.entityId = entityId;
+        this.componentInfoList = componentInfoList;
+        this.systemExpandData = null;
+    }
+
+    public virtual void FillInSystemExpandData(GlobalUnion globalUnion) { }
+
     public abstract void SystemExecute();
+
+    public override void Update()
+    {
+        SystemExecute();
+    }
 }

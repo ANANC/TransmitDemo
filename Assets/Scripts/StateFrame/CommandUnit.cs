@@ -1,10 +1,11 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class CommandUnit : BaseUnit
 {
-    private List<BaseCommand> executeCommandList;
+    private Dictionary<ECSDefine.SystemFunctionType,List<BaseCommand>> executeCommandList;
 
     private List<BaseCommand> sendCommandList;
 
@@ -17,7 +18,7 @@ public class CommandUnit : BaseUnit
 
     public override void Init()
     {
-        executeCommandList = new List<BaseCommand>();
+        executeCommandList = new Dictionary<ECSDefine.SystemFunctionType, List<BaseCommand>>();
         sendCommandList = new List<BaseCommand>();
         cacheCommandList = new List<BaseCommand>();
 
@@ -52,18 +53,6 @@ public class CommandUnit : BaseUnit
         ExecuteSystemUnit = null;
     }
 
-    public override void Update()
-    {
-        for(int index = 0;index< cacheCommandList.Count;index++)
-        {
-            BaseCommand command = cacheCommandList[index];
-
-
-
-            PushCommand(command.GetSystemType(), command);
-        }
-        cacheCommandList.Clear();
-    }
 
     public void RequireCommand(int entityId, ECSDefine.SystemType systemType, BaseSystem.SystemExpandData expandData)
     {
@@ -87,6 +76,32 @@ public class CommandUnit : BaseUnit
 
             cacheCommandList.Add(command);
         }
+    }
+
+    public void CacheCommandListToExecuteCommandList()
+    {
+        for (int index = 0; index < cacheCommandList.Count; index++)
+        {
+            BaseCommand command = cacheCommandList[index];
+
+            ECSDefine.SystemType systemType = command.GetSystemType();
+
+            ECSDefine.SystemFunctionType systemFunction;
+            if (!ECSInstanceDefine.SystemType2Function.TryGetValue(systemType, out systemFunction))
+            {
+                Debug.LogError($"[ECSModule] CacheCommandToExecuteCommand Fail. No SystemFunctionType Reocrd. systemType:{Enum.GetName(typeof(ECSDefine.SystemType), systemType)}");
+                continue;
+            }
+
+            List<BaseCommand> commandList;
+            if(!executeCommandList.TryGetValue(systemFunction,out commandList))
+            {
+                commandList = new List<BaseCommand>();
+                executeCommandList.Add(systemFunction, commandList);
+            }
+            commandList.Add(command);
+        }
+        cacheCommandList.Clear();
     }
 
     public List<BaseCommand> PopSendCommands()

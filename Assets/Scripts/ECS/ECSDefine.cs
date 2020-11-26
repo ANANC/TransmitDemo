@@ -19,6 +19,15 @@ public class ECSDefine
     };
 
 
+    public enum SystemFunctionType
+    {
+        Create,
+        Logic,
+        Statistics,
+        Death,
+    }
+
+
     public enum SystemPriority
     {
         Top,
