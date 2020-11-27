@@ -26,5 +26,14 @@ public class OperationInstanceDefine
         //---- SystemType ----
         { (int)ECSDefine.SystemType.ComponentInfo, typeof(BaseSystem.ComponentInfo) },
         { (int)ECSDefine.SystemType.Base, typeof(BaseSystem) },
+
+        
+        //---- SynchroValueRspSystemType ----
+        { (int)ECSDefine.SynchroValueRspSystemType.Base, typeof(BaseSynchroValueRspSystem) },
+
+
+        //---- SynchronizationValueType ----
+        { (int)ECSDefine.SynchronizationValueType.Require, typeof(SynchroValueRep) },
+        { (int)ECSDefine.SynchronizationValueType.Response, typeof(SynchroValueRsp) },
     };
 }

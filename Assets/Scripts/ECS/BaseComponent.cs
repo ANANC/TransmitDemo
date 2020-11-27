@@ -4,7 +4,9 @@ using UnityEngine;
 
 public abstract class BaseComponent : BaseObject
 {
-    public class ComponentExpandData { };
+    public abstract class ComponentExpandData {
+        public abstract ComponentExpandData Copy();
+    };
 
     private int entityId;
     private int componentId;
@@ -21,7 +23,7 @@ public abstract class BaseComponent : BaseObject
 
     }
 
-    public abstract void FillIn();
+    public abstract void FillInExpandData();
 
     public void SetEntityId(int id)
     {

@@ -18,6 +18,18 @@ public class ECSDefine
         Base = 3001,
     };
 
+    public enum SynchroValueRspSystemType
+    {
+        Base = 4000,
+    }
+
+
+    public enum SynchronizationValueType
+    {
+        Require = 5000,
+        Response = 5001,
+    }
+
 
     public enum SystemFunctionType
     {

@@ -14,7 +14,26 @@ public class ExecuteSystemUnit : BaseUnit
     private IdDistributionChunk systemComponentInfoIdDistributionChunk;
     private Operation systemComponentInfoOperation;
 
+    private IdDistributionChunk synchroValueRspSystemIdDistributionChunk;
+    private Operation synchroValueRspSystemOperation;
+
     private ECSUnit ECSUnit;
+
+    private IExecuteSystemController _executeSystemController;
+    private IExecuteSystemController executeSystemController
+    {
+        get
+        {
+            if(_executeSystemController == null)
+            {
+                _executeSystemController = CreateExecuteSystemController();
+                _executeSystemController.Init();
+                _executeSystemController.SetGlobalUnion(GlobalUnion);
+            }
+            return _executeSystemController;
+        }
+    }
+
 
     public override void Init()
     {
@@ -28,6 +47,13 @@ public class ExecuteSystemUnit : BaseUnit
         systemComponentInfoOperation = new Operation();
         systemComponentInfoOperation.Init();
         systemComponentInfoOperation.SetName("SystemComponentInfo");
+
+        synchroValueRspSystemIdDistributionChunk = new IdDistributionChunk();
+        synchroValueRspSystemIdDistributionChunk.Init();
+
+        synchroValueRspSystemOperation = new Operation();
+        synchroValueRspSystemOperation.Init();
+        synchroValueRspSystemOperation.SetName("SynchroValueRspSystem");
 
         InitSystemComponentInfoIdDistributionChunk();
         InitSystemIdDistributionChunk();
@@ -45,7 +71,6 @@ public class ExecuteSystemUnit : BaseUnit
     {
         systemComponentInfoIdDistributionChunk = new IdDistributionChunk();
         systemComponentInfoIdDistributionChunk.Init();
-        systemComponentInfoIdDistributionChunk.SetFirstId(1);
     }
 
     public override void UnInit()
@@ -56,9 +81,28 @@ public class ExecuteSystemUnit : BaseUnit
         systemIdDistributionChunk.UnInit();
         systemComponentInfoIdDistributionChunk.UnInit();
 
+        synchroValueRspSystemIdDistributionChunk.UnInit();
+        synchroValueRspSystemOperation.UnInit();
+
         functionSystemOperationDict.Clear();
 
         ECSUnit = null;
+
+        _executeSystemController.UnInit();
+    }
+
+    private IExecuteSystemController CreateExecuteSystemController()
+    {
+        if (GlobalUnion.Define.GetIsMainTerminal())
+        {
+            Debug.Log("[ExecuteSystemUnit] CreateExecuteSystemController. TerminalExecuteSystemController");
+            return new TerminalExecuteSystemController();
+        }
+        else
+        {
+            Debug.Log("[ExecuteSystemUnit] CreateExecuteSystemController. MainTerminalExecuteSystemController");
+            return new MainTerminalExecuteSystemController();
+        }
     }
 
     public void UpdateFunctionSystemsByFunctionTyep(ECSDefine.SystemFunctionType systemFunctionType,ECSDefine.SystemType systemType)
@@ -69,11 +113,6 @@ public class ExecuteSystemUnit : BaseUnit
             functionSystems.UpdateUpdateOperationObjectList();
             functionSystems.UpdatePollingOperationObjectByOperationObjectType((int)systemType);
         }
-    }
-
-    private int PollingFunctionSystemOperationSort(int leftSystem,int rightSystem)
-    {
-        return -1;
     }
 
     public void RegSystem(int entityId, ECSDefine.SystemType systemType)
@@ -92,30 +131,10 @@ public class ExecuteSystemUnit : BaseUnit
             return;
         }
 
-        bool success = true;
-
-        do
-        {
-            List<BaseSystem.ComponentInfo> componentInfos;
-            bool fillInSuccess = FillInComponentInfo(system, entity, out componentInfos);
-
-            if (!fillInSuccess)
-            {
-                success = false;
-                break;
-            }
-
-            system.FillInExecute(entityId, componentInfos);
-        }
-        while (false);
-
-        if(!success)
-        {
-            DeleteFunctionSystem(systemType,system);
-        }
+        system.FillInExecute(entityId);
     }
 
-    private void UnRegSystem(int entityId, ECSDefine.SystemType systemType)
+    public void UnRegSystem(int entityId, ECSDefine.SystemType systemType)
     {
         BaseEntity entity = ECSUnit.GetEntity(entityId);
         if (entity == null)
@@ -216,16 +235,8 @@ public class ExecuteSystemUnit : BaseUnit
                 break;
             }
 
-            List<BaseSystem.ComponentInfo> componentInfos;
-            bool fillInSuccess = FillInComponentInfo(system, entity,out componentInfos);
-
-            if (!fillInSuccess)
-            {
-                break;
-            }
-
             system.SetGlobalUnionId(GlobalUnionId);
-            system.Execute(entityId, componentInfos, expandData);
+            system.Execute(entityId, expandData);
         }
         while (false);
 
@@ -251,6 +262,24 @@ public class ExecuteSystemUnit : BaseUnit
         system.SetGlobalUnionId(0);
         systemOperation.DeleteOperationObject((int)systemType, system);
     }
+
+    public void ExecuteSynchroValueRspSystem(ECSDefine.SynchroValueRspSystemType systemType, SynchroValueRsp.SynchroValueRspStructure synchroValueRspStructure)
+    {
+        int synchroValueRspSystemId = synchroValueRspSystemIdDistributionChunk.Pop();
+        OperationObject operationObject = synchroValueRspSystemOperation.CreateOperationObject((int)systemType, synchroValueRspSystemId);
+        if (operationObject == null)
+        {
+            Debug.LogError($"[ECSModule] ExecuteSynchroValueRspSystem Fail. systemType:{Enum.GetName(typeof(ECSDefine.SynchroValueRspSystemType), systemType)}");
+            return;
+        }
+
+        BaseSynchroValueRspSystem synchroValueRspSystem = operationObject as BaseSynchroValueRspSystem;
+        synchroValueRspSystem.SetGlobalUnionId(GlobalUnionId);
+        synchroValueRspSystem.Execute(synchroValueRspStructure);
+
+        synchroValueRspSystemOperation.DeleteOperationObject((int)systemType, operationObject);//执行完毕回收
+    }
+
 
     private BaseSystem InitSystem(OperationObject operationObject, ECSDefine.SystemType systemType, int systemId)
     {
@@ -280,10 +309,21 @@ public class ExecuteSystemUnit : BaseUnit
         return system;
     }
 
-    private bool FillInComponentInfo(BaseSystem system,BaseEntity entity, out List<BaseSystem.ComponentInfo> componentInfos)
+
+    public List<BaseComponent> RequireComponentList(int entityId, List<BaseSystem.ComponentInfo> componentInfos)
     {
-        bool fillInSuccess = true;
-        componentInfos = system.PopComponentInfoList();
+        BaseEntity entity = ECSUnit.GetEntity(entityId);
+        if (entity == null)
+        {
+            Debug.LogError($"[ECSModule] RequireComponentList Fail. Entity Is nil. entityId:{entityId}");
+            return null;
+        }
+        return RequireComponentList(entity, componentInfos);
+    }
+
+    private List<BaseComponent> RequireComponentList(BaseEntity entity, List<BaseSystem.ComponentInfo> componentInfos)
+    {
+        List<BaseComponent> componentList = null;
         for (int index = 0; index < componentInfos.Count; index++)
         {
             BaseSystem.ComponentInfo componentInfo = componentInfos[index];
@@ -300,20 +340,24 @@ public class ExecuteSystemUnit : BaseUnit
 
             if (component == null)
             {
-                fillInSuccess = false;
+                componentList = null;
                 Debug.LogError($"[ECSModule] ExecuteSystem Fail. Component Is nil. {entity.GetEntityId()}  componentId:{componentInfo.ComponentId } componentType:{componentInfo.ComponentType}");
                 break;
             }
             else
             {
-                componentInfo.Component = component;
-                componentInfo.ComponentId = component.GetComponentId();
-                componentInfo.ComponentType = component.GetComponentType();
+                component = executeSystemController.RequireComponentControl(component);
+
+                if(componentList == null)
+                {
+                    componentList = new List<BaseComponent>();
+                }
+
+                componentList.Add(component);
             }
         }
-        return fillInSuccess;
+        return componentList;
     }
-
 
     public BaseSystem.ComponentInfo PopSystemComponentInfo()
     {

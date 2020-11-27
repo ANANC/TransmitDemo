@@ -13,10 +13,42 @@ public class SynchronizationUnit : BaseUnit
     private ExecuteSystemUnit executeSystemUnit;
     private CommandUnit commandUnit;
 
+    private Operation SynchroValueRepOperation;
+    private Operation SynchroValueRspOperation;
+    private IdDistributionChunk synchroValueIdDistributionChunk;
 
+    private List<SynchroValueRep> synchroValueRepList;
+    private List<SynchroValueRsp> synchroValueRspList;
+
+    private List<SynchroValueRsp> sendSynchroValueRspList;
+
+    private ECSUnit _ecsUnit;
+    private ECSUnit ecsUnit
+    {
+        get
+        {
+            if(_ecsUnit == null)
+            {
+                _ecsUnit = GlobalUnion.GetUnit<ECSUnit>();
+            }
+            return _ecsUnit;
+        }
+    }
 
     public override void Init()
     {
+        SynchroValueRepOperation = new Operation();
+        SynchroValueRepOperation.Init();
+        SynchroValueRepOperation.SetName("SynchroValueRep");
+
+        SynchroValueRspOperation = new Operation();
+        SynchroValueRspOperation.Init();
+        SynchroValueRspOperation.SetName("SynchroValueRsp");
+
+        synchroValueIdDistributionChunk = new IdDistributionChunk();
+        synchroValueIdDistributionChunk.Init();
+        synchroValueIdDistributionChunk.SetInterval(2);
+
         InitSystemFunctionTypePriority();
         InitFunction2SystemTypeDict();
 
@@ -38,15 +70,15 @@ public class SynchronizationUnit : BaseUnit
 
     private void InitFunction2SystemTypeDict()
     {
-        function2SystemTypeDict = new Dictionary<ECSDefine.SystemFunctionType,List<ECSDefine.SystemType>>();
+        function2SystemTypeDict = new Dictionary<ECSDefine.SystemFunctionType, List<ECSDefine.SystemType>>();
         Dictionary<ECSDefine.SystemType, ECSDefine.SystemFunctionType>.Enumerator enumerator = ECSInstanceDefine.SystemType2Function.GetEnumerator();
-        while(enumerator.MoveNext())
+        while (enumerator.MoveNext())
         {
             ECSDefine.SystemFunctionType systemFunctionType = enumerator.Current.Value;
             ECSDefine.SystemType systemType = enumerator.Current.Key;
 
             List<ECSDefine.SystemType> systemTypeList;
-            if(!function2SystemTypeDict.TryGetValue(systemFunctionType,out systemTypeList))
+            if (!function2SystemTypeDict.TryGetValue(systemFunctionType, out systemTypeList))
             {
                 systemTypeList = new List<ECSDefine.SystemType>();
                 function2SystemTypeDict.Add(systemFunctionType, systemTypeList);
@@ -55,7 +87,7 @@ public class SynchronizationUnit : BaseUnit
         }
 
         Dictionary<ECSDefine.SystemFunctionType, List<ECSDefine.SystemType>>.Enumerator systemFunctionTypeEnumerator = function2SystemTypeDict.GetEnumerator();
-        while(systemFunctionTypeEnumerator.MoveNext())
+        while (systemFunctionTypeEnumerator.MoveNext())
         {
             List<ECSDefine.SystemType> systemTypeList = systemFunctionTypeEnumerator.Current.Value;
             systemTypeList.Sort(SystemFunctionTypeSystemSotr);
@@ -64,11 +96,16 @@ public class SynchronizationUnit : BaseUnit
 
     public override void UnInit()
     {
+        SynchroValueRepOperation.UnInit();
+        SynchroValueRspOperation.UnInit();
+
         systemFunctionTypePriorityArray = null;
         function2SystemTypeDict.Clear();
 
         commandUnit = null;
         executeSystemUnit = null;
+
+        _ecsUnit = null;
     }
 
     public override void Update()
@@ -79,7 +116,7 @@ public class SynchronizationUnit : BaseUnit
     private int SystemFunctionTypeSystemSotr(ECSDefine.SystemType leftSystemType, ECSDefine.SystemType rightSystemType)
     {
         ECSDefine.SystemPriority leftSystemPriority;
-        if(!ECSInstanceDefine.SystemType2Priority.TryGetValue(leftSystemType,out leftSystemPriority))
+        if (!ECSInstanceDefine.SystemType2Priority.TryGetValue(leftSystemType, out leftSystemPriority))
         {
             leftSystemPriority = ECSDefine.SystemPriority.Normal;
         }
@@ -98,7 +135,7 @@ public class SynchronizationUnit : BaseUnit
         commandUnit.CacheCommandListToExecuteCommandList();
 
         //功能系统顺序
-        for (int index = 0;index< systemFunctionTypePriorityArray.Length;index++)
+        for (int index = 0; index < systemFunctionTypePriorityArray.Length; index++)
         {
             ECSDefine.SystemFunctionType systemFunctionType = systemFunctionTypePriorityArray[index];
 
@@ -106,7 +143,7 @@ public class SynchronizationUnit : BaseUnit
             if (function2SystemTypeDict.TryGetValue(systemFunctionType, out systemTypeList))
             {
                 // 执行系统顺序
-                for(int systemIndex = 0;systemIndex < systemTypeList.Count;systemIndex++)
+                for (int systemIndex = 0; systemIndex < systemTypeList.Count; systemIndex++)
                 {
                     ECSDefine.SystemType systemType = systemTypeList[systemIndex];
 
@@ -117,9 +154,9 @@ public class SynchronizationUnit : BaseUnit
                     executeSystemUnit.UpdateFunctionSystemsByFunctionTyep(systemFunctionType, systemType);
                 }
 
-                if(GameUnitSystemFunctionType == systemFunctionType)
+                if (GameUnitSystemFunctionType == systemFunctionType)
                 {
-                    for(int unitIndex = 0;unitIndex< ECSInstanceDefine.GameUnitPriorityList.Count;unitIndex++)
+                    for (int unitIndex = 0; unitIndex < ECSInstanceDefine.GameUnitPriorityList.Count; unitIndex++)
                     {
                         ECSInstanceDefine.GameUnitPriorityList[unitIndex].Update();
                     }
@@ -128,5 +165,110 @@ public class SynchronizationUnit : BaseUnit
         }
     }
 
+    public bool IsHingeComponentType(ECSDefine.ComponentType componentType)
+    {
+        return ECSInstanceDefine.RequireComponentType2ExecuteSystem.ContainsKey(componentType);
+    }
 
+    public void RequireSynchroValueRep(int entityId,int componentId, ECSDefine.ComponentType componentType)
+    {
+        int reqId = synchroValueIdDistributionChunk.Pop();
+        ECSDefine.SynchronizationValueType synchronizationValueType = ECSDefine.SynchronizationValueType.Require;
+        OperationObject operationObject = SynchroValueRepOperation.CreateOperationObject((int)synchronizationValueType, reqId);
+        if (operationObject == null)
+        {
+            Debug.LogError($"[SynchronizationUnit] RequireComponent Fail. SynchroValueRep is nil. synchronizationValueType:{Enum.GetName(typeof(ECSDefine.SynchronizationValueType), synchronizationValueType)}");
+            return;
+        }
+
+        SynchroValueRep synchroValueRep = operationObject as SynchroValueRep;
+        synchroValueRep.SetSynchroValueRepId(reqId);
+        synchroValueRep.SetEntityId(entityId);
+        synchroValueRep.SetComponentId(componentId);
+        synchroValueRep.SetComponentType(componentType);
+
+        synchroValueRepList.Add(synchroValueRep);
+    }
+
+    public void ReceiveSynchroValueRep(SynchroValueRep synchroValueRep)
+    {
+        synchroValueRepList.Add(synchroValueRep);
+    }
+
+    public void ExecuteCacheSynchroValueRep()
+    {
+        for(int index = 0;index< synchroValueRepList.Count;index++)
+        {
+            SynchroValueRep synchroValueRep = synchroValueRepList[index];
+            SynchroValueRsp synchroValueRsp = SynchroValueRepToSynchroValueRsp(synchroValueRep);
+            if(synchroValueRsp == null)
+            {
+                continue;
+            }
+            sendSynchroValueRspList.Add(synchroValueRsp);
+
+        }
+        synchroValueRepList.Clear();
+    }
+
+    private SynchroValueRsp SynchroValueRepToSynchroValueRsp(SynchroValueRep synchroValueRep)
+    {
+        int synchroValueRepId = synchroValueRep.GetSynchroValueRepId();
+        int synchroValueRspId = synchroValueRepId + 1;
+        OperationObject operationObject = SynchroValueRspOperation.CreateOperationObject((int)ECSDefine.SynchronizationValueType.Response, synchroValueRspId);
+        if(operationObject == null)
+        {
+            Debug.LogError("[SynchronizationUnit] SynchroValueRepToSynchroValueRsp Fail. Create SynchroValueRsp Fail");
+            return null;
+        }
+
+        int entityId = synchroValueRep.GetEntityId();
+        int componentId = synchroValueRep.GetComponentId();
+        ECSDefine.ComponentType componentType = synchroValueRep.GetComponentType();
+
+        SynchroValueRsp synchroValueRsp = operationObject as SynchroValueRsp;
+        synchroValueRsp.SetSynchroValueRspId(synchroValueRspId);
+        synchroValueRsp.SetComponentId(componentId);
+        synchroValueRsp.SetComponentType(componentType);
+        synchroValueRep.SetEntityId(entityId);
+
+        BaseEntity entity = ecsUnit.GetEntity(entityId);
+        if(entity == null)
+        {
+            synchroValueRsp.SetIsEntityAlive(true);
+            BaseComponent component = entity.GetComponentByComponentId(componentId);
+            synchroValueRsp.SetIsComponentAlive(component != null);
+        }
+        else
+        {
+            synchroValueRsp.SetIsEntityAlive(false);
+            synchroValueRsp.SetIsComponentAlive(false);
+        }
+
+        return synchroValueRsp;
+    }
+
+    public void ReceiveSynchroValueRsp(SynchroValueRsp synchroValueRsp)
+    {
+        synchroValueRspList.Add(synchroValueRsp);
+    }
+
+    public void ExecuteCacheSynchroValueRsp()
+    {
+        for(int index = 0;index< synchroValueRspList.Count;index++)
+        {
+            SynchroValueRsp synchroValueRsp = synchroValueRspList[index];
+
+            ECSDefine.ComponentType componentType = synchroValueRsp.GetComponentType();
+            ECSDefine.SynchroValueRspSystemType synchroValueRspSystemType;
+            if (!ECSInstanceDefine.RequireComponentType2ExecuteSystem.TryGetValue(componentType, out synchroValueRspSystemType))
+            {
+                Debug.LogError($"[SynchronizationUnit] ExecuteCacheSynchroValueRsp Fail. {Enum.GetName(typeof(ECSDefine.ComponentType), componentType)}");
+                continue;
+            }
+            SynchroValueRsp.SynchroValueRspStructure synchroValueRspStructure = synchroValueRsp.GetSynchroValueRspStructure();
+            executeSystemUnit.ExecuteSynchroValueRspSystem(synchroValueRspSystemType, synchroValueRspStructure);
+        }
+        synchroValueRspList.Clear();
+    }
 }

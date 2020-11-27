@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,6 +14,9 @@ public class GlobalUnion : PollingOperationObject
 
     private IdDistributionChunk idDistributionChunk;
 
+    private GlobalInstanceDefine globalInstanceDefine;
+    public GlobalInstanceDefine Define { get { return globalInstanceDefine; } }
+
     public void SetGlobalUnionId(int globalUnionId)
     {
         this.globalUnionId = globalUnionId;
@@ -22,9 +26,11 @@ public class GlobalUnion : PollingOperationObject
     {
         unitTypeDict = new Dictionary<Type, int>();
         unitDict = new Dictionary<Type, BaseUnit>();
+        globalInstanceDefine = new GlobalInstanceDefine();
 
         InitPollingOperation();
         InitGlobalIdDistributionChunk();
+
     }
 
     private void InitPollingOperation()
